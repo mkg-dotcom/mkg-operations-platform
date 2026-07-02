@@ -1,0 +1,71 @@
+import React, { useMemo, useState } from 'react'
+import { createRoot } from 'react-dom/client'
+import { LayoutDashboard, ClipboardList, ShieldCheck, FileText, CreditCard, TriangleAlert, Building2, Users, BarChart3, Search, Bell, Plus, Clock3, CheckCircle2, AlertCircle, MoreHorizontal, X, Menu, Send, UserRound, ClipboardCheck, ArrowUpRight, CalendarDays, SlidersHorizontal } from 'lucide-react'
+import './styles.css'
+
+const offices = ['Bright Smile Dental','Oakwood Family Dentistry','Lakeside Dental Care','Sunrise Pediatric Dental']
+const staff = [
+  ['Maria Santos','MS','Insurance Specialist',18,20], ['Kevin Dela Cruz','KD','Claims Specialist',16,18],
+  ['Jasmine Reyes','JR','Payment Poster',14,16], ['Carlo Mendoza','CM','AR Specialist',11,15]
+]
+const seed = [
+ ['1048','Olivia Martinez',0,'Insurance Verification',0,'High','In Progress','Today, 2:00 PM'],
+ ['1047','Ethan Williams',1,'Claims Follow-Up',1,'Urgent','Problem Claim','Overdue by 2 days'],
+ ['1046','Sophia Anderson',2,'Payment Posting',2,'Medium','Waiting for Insurance','Jul 4, 2026'],
+ ['1045','Noah Thompson',0,'Pre-Authorization',0,'High','Need Review','Today, 4:30 PM'],
+ ['1044','Ava Garcia',3,'Claims Follow-Up',3,'Low','Waiting for Office','Jul 7, 2026'],
+ ['1043','Liam Robinson',1,'Insurance Verification',0,'Medium','Completed','Jul 2, 2026'],
+ ['1042','Mia Lee',2,'Payment Posting',2,'Medium','Completed','Jul 2, 2026']
+].map(a=>({id:'MKG-'+a[0],patient:a[1],office:offices[a[2]],type:a[3],employee:staff[a[4]][0],priority:a[5],status:a[6],due:a[7],dos:'Jun 30, 2026',followup:'Jul 2, 2026',next:'Jul 4, 2026',completion:a[6]==='Completed'?'Jul 2, 2026':'—',notes:'Verify documentation and update the office with the next action.'}))
+const nav = [
+ ['Dashboard',LayoutDashboard],['All Tasks',ClipboardList],['Insurance Verification',ShieldCheck],['Claims Follow-Up',FileText],['Payment Posting',CreditCard],['Problem Claims',TriangleAlert],['Pre-Authorizations',ShieldCheck],['Offices',Building2],['Employees',Users],['EOD Reports',ClipboardCheck],['KPI Dashboard',BarChart3]
+]
+const statuses=['Pending','In Progress','Waiting for Insurance','Waiting for Office','Completed','Problem Claim','Need Review']
+
+function App(){
+ const [page,setPage]=useState('Dashboard'), [tasks,setTasks]=useState(()=>JSON.parse(localStorage.getItem('mkg-tasks')||'null')||seed)
+ const [query,setQuery]=useState(''), [office,setOffice]=useState('All offices'), [role,setRole]=useState('Admin')
+ const [drawer,setDrawer]=useState(null), [mobile,setMobile]=useState(false), [toast,setToast]=useState('')
+ const saveTasks=next=>{setTasks(next);localStorage.setItem('mkg-tasks',JSON.stringify(next))}
+ const notify=x=>{setToast(x);setTimeout(()=>setToast(''),2400)}
+ let filtered=useMemo(()=>tasks.filter(t=>(office==='All offices'||t.office===office)&&Object.values(t).join(' ').toLowerCase().includes(query.toLowerCase())),[tasks,office,query])
+ if(page==='Problem Claims') filtered=filtered.filter(t=>t.status==='Problem Claim')
+ else if(page==='Pre-Authorizations') filtered=filtered.filter(t=>t.type==='Pre-Authorization')
+ else if(['Insurance Verification','Claims Follow-Up','Payment Posting'].includes(page)) filtered=filtered.filter(t=>t.type===page)
+ const go=p=>{setPage(p);setMobile(false)}
+ let content=page==='Dashboard'?<Dashboard tasks={filtered} open={setDrawer} go={go}/>:page==='Offices'?<Offices/>:page==='Employees'?<Employees/>:page==='EOD Reports'?<EOD notify={notify}/>:page==='KPI Dashboard'?<KPI/>:<Tasks title={page} tasks={filtered} open={setDrawer}/>
+ return <div className="app">
+  <aside className={mobile?'open':''}>
+   <div className="brand"><i>M</i><b>MKG<small>OPERATIONS</small></b><button onClick={()=>setMobile(false)}><X/></button></div>
+   <nav>{nav.map(([n,I],i)=><React.Fragment key={n}>{[0,1,7].includes(i)&&<label>{i===0?'OVERVIEW':i===1?'OPERATIONS':'MANAGEMENT'}</label>}<button className={page===n?'active':''} onClick={()=>go(n)}><I/>{n}{n==='Problem Claims'&&<em>5</em>}</button></React.Fragment>)}</nav>
+   <div className="profile"><i>AR</i><span><b>Ana Reyes</b><small>{role}</small></span><MoreHorizontal/></div>
+  </aside>
+  <main>
+   <header><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><div className="search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search patient, office, employee..."/></div><div className="actions"><label><Building2/><select value={office} onChange={e=>setOffice(e.target.value)}><option>All offices</option>{offices.map(o=><option key={o}>{o}</option>)}</select></label><Bell/><label><small>VIEW AS</small><select value={role} onChange={e=>setRole(e.target.value)}><option>Admin</option><option>Team Lead</option><option>Employee</option></select></label></div></header>
+   <div className="page">{content}</div>
+  </main>
+  {drawer&&<Drawer task={drawer===true?null:drawer} close={()=>setDrawer(null)} save={(t,s,n)=>{saveTasks(tasks.map(x=>x.id===t.id?{...x,status:s,notes:n,completion:s==='Completed'?new Date().toLocaleDateString():'—'}:x));setDrawer(null);notify('Task updated successfully')}} create={t=>{saveTasks([{...t,id:'MKG-'+(1050+tasks.length),dos:'Jul 3, 2026',followup:'—',next:t.due,completion:'—'},...tasks]);setDrawer(null);notify('New task assigned')}}/>}
+  {mobile&&<div className="scrim" onClick={()=>setMobile(false)}/>} {toast&&<div className="toast"><CheckCircle2/>{toast}</div>}
+ </div>
+}
+
+const Head=({k='FRIDAY, JULY 3',title,sub,children})=><div className="head"><div><small>{k}</small><h1>{title}</h1><p>{sub}</p></div>{children}</div>
+const Panel=({title,sub,children,action})=><section className="panel"><div className="ph"><div><h2>{title}</h2><p>{sub}</p></div>{action}</div>{children}</section>
+
+function Dashboard({tasks,open,go}){return <>
+ <Head title="Good morning, Ana" sub="Here’s what’s happening across MKG operations today."><button className="primary" onClick={()=>open(true)}><Plus/>Assign new task</button></Head>
+ <div className="stats">{[['Total tasks','128','+8.2% from yesterday',ClipboardList],['Completed today','44','86% of daily target',CheckCircle2],['Pending tasks','33','12 due today',Clock3],['Overdue','9','3 require attention',AlertCircle],['Problem claims','5','$12,840 at risk',TriangleAlert]].map(([a,b,c,I])=><article key={a}><I/><span>{a}</span><b>{b}</b><small>{c}</small></article>)}</div>
+ <div className="split"><Panel title="Team workload" sub="Tasks assigned today"><Work/></Panel><Panel title="Today’s progress" sub="Daily completion target"><div className="donut"><b>59<small>of 69</small></b></div><div className="pace"><ArrowUpRight/><b>Great pace today!<small>Team is 8% ahead of yesterday.</small></b></div></Panel></div>
+ <Panel title="Priority tasks" sub="Items that need attention today" action={<button className="link" onClick={()=>go('All Tasks')}>View all <ArrowUpRight/></button>}><Table tasks={tasks.slice(0,5)} open={open}/></Panel>
+ <div className="split lower"><Panel title="Tasks by office" sub="Active workload distribution"><div className="bars">{offices.map((o,i)=><div key={o}><b>{o}</b><span>{42-i*7} tasks</span><progress value={42-i*7} max="45"/></div>)}</div></Panel><Panel title="Needs attention" sub="Urgent items and blockers"><div className="alerts"><p><TriangleAlert/><b>3 overdue problem claims<small>Oldest is 6 days overdue</small></b></p><p><Clock3/><b>7 follow-ups due today<small>Across 3 dental offices</small></b></p><p><FileText/><b>2 EOD reports pending<small>Due before 8:00 PM PHT</small></b></p></div></Panel></div>
+ </>}
+function Work(){return <div className="work">{staff.map(s=><div key={s[0]}><i>{s[1]}</i><span><b>{s[0]}</b><small>{s[3]} of {s[4]} tasks</small><progress value={s[3]} max={s[4]}/></span><strong>{Math.round(s[3]/s[4]*100)}%</strong></div>)}</div>}
+function Table({tasks,open}){return <div className="table"><table><thead><tr><th>Patient / Task</th><th>Office</th><th>Assigned to</th><th>Priority</th><th>Status</th><th>Due date</th><th/></tr></thead><tbody>{tasks.map(t=><tr key={t.id} onClick={()=>open(t)}><td><b>{t.patient}</b><small>{t.id} · {t.type}</small></td><td>{t.office}</td><td>{t.employee}</td><td><em className={t.priority}>{t.priority}</em></td><td><em className={t.status.replaceAll(' ','')}>{t.status}</em></td><td className={t.due.includes('Overdue')?'red':''}>{t.due}</td><td><MoreHorizontal/></td></tr>)}</tbody></table>{!tasks.length&&<div className="empty">No tasks match these filters.</div>}</div>}
+function Tasks({title,tasks,open}){return <><Head k="OPERATIONS" title={title} sub={tasks.length+' records across selected offices.'}><button className="primary" onClick={()=>open(true)}><Plus/>New task</button></Head><div className="filters"><button><SlidersHorizontal/>All statuses</button><button><UserRound/>All assignees</button><button><CalendarDays/>This month</button></div><Panel><Table tasks={tasks} open={open}/></Panel></>}
+function Offices(){return <><Head k="MANAGEMENT" title="Dental offices" sub="Manage client offices, contacts, and active workloads."><button className="primary"><Plus/>Add office</button></Head><div className="cards">{offices.map((o,i)=><article key={o}><i>{o.split(' ').map(x=>x[0]).join('').slice(0,3)}</i><h3>{o}</h3><p>{['Austin, TX','Plano, TX','Orlando, FL','Phoenix, AZ'][i]}</p><hr/><span><ClipboardList/>{42-i*7} active tasks</span><span><UserRound/>Dr. {['Rivera','Patel','Chen','Wilson'][i]}</span><button>View office <ArrowUpRight/></button></article>)}</div></>}
+function Employees(){return <><Head k="MANAGEMENT" title="Team members" sub="Review workload, assignments, and daily productivity."><button className="primary"><Plus/>Add employee</button></Head><div className="cards employees">{staff.map(s=><article key={s[0]}><i>{s[1]}</i><h3>{s[0]}</h3><p>{s[2]}</p><em>● Active</em><div><b>{s[3]}<small>Completed</small></b><b>{s[4]-s[3]}<small>Open</small></b><b>{Math.round(s[3]/s[4]*100)}%<small>Productivity</small></b></div><button>View performance</button></article>)}</div></>}
+function EOD({notify}){const[done,setDone]=useState(false);return <><Head k="DAILY REPORTING" title="End-of-day reports" sub="Document completed work, blockers, and time worked."/><div className="split"><Panel title="Submit today’s report" sub="Friday, July 3 · Philippine Time">{done?<div className="success"><CheckCircle2/><h2>Report submitted</h2><p>Your team lead can now review today’s work.</p><button onClick={()=>setDone(false)}>Edit report</button></div>:<form onSubmit={e=>{e.preventDefault();setDone(true);notify('EOD report submitted for review')}}><label>Office handled<select>{offices.map(o=><option key={o}>{o}</option>)}</select></label><div className="pair"><label>Tasks completed<input type="number" defaultValue="18"/></label><label>Time worked<input defaultValue="8 hours"/></label></div><label>Pending items<textarea defaultValue="3 verification requests awaiting payer response"/></label><label>Problem claims<textarea defaultValue="1 claim needs corrected attachment"/></label><label>Notes or concerns<textarea placeholder="Add context for your team lead..."/></label><button className="primary"><Send/>Submit EOD report</button></form>}</Panel><Panel title="Recent submissions" sub="Latest team reports"><Work/></Panel></div></>}
+function KPI(){return <><Head k="ANALYTICS" title="KPI dashboard" sub="Team performance for June 27 – July 3, 2026."/><div className="stats four">{[['Tasks completed','1,247','↑ 12.4%'],['Avg. completion time','18.4h','↓ 2.1h'],['On-time rate','94.8%','↑ 3.2%'],['Claims recovered','$38.6k','↑ $4,280']].map(x=><article key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}</div><div className="split"><Panel title="Daily completed work" sub="Tasks completed across all offices"><div className="chart">{[60,75,68,90,83,98,72].map((h,i)=><div key={i}><i style={{height:h+'%'}}/><small>{['Sat','Sun','Mon','Tue','Wed','Thu','Fri'][i]}</small></div>)}</div></Panel><Panel title="Employee performance" sub="Against weekly targets"><Work/></Panel></div></>}
+function Drawer({task,close,save,create}){const[s,setS]=useState(task?.status||'Pending'),[notes,setNotes]=useState(task?.notes||''),fresh=!task;return <div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><section className="drawer"><header><div><small>{fresh?'NEW ASSIGNMENT':task.id}</small><h2>{fresh?'Assign a task':task.patient}</h2></div><button onClick={close}><X/></button></header><form onSubmit={e=>{e.preventDefault();fresh?create(Object.fromEntries(new FormData(e.currentTarget))):save(task,s,notes)}}>{fresh?<><label>Patient name<input name="patient" required autoFocus placeholder="Enter patient name"/></label><label>Office<select name="office">{offices.map(o=><option key={o}>{o}</option>)}</select></label><div className="pair"><label>Task type<select name="type"><option>Insurance Verification</option><option>Claims Follow-Up</option><option>Payment Posting</option><option>AR Follow-Up</option><option>Pre-Authorization</option><option>Credentialing</option></select></label><label>Priority<select name="priority"><option>Medium</option><option>High</option><option>Urgent</option><option>Low</option></select></label></div><label>Assign to<select name="employee">{staff.map(s=><option key={s[0]}>{s[0]}</option>)}</select></label><label>Due date<input name="due" type="date" required/></label><label>Notes<textarea name="notes"/></label><input type="hidden" name="status" value="Pending"/> </>:<><div className="details">{[['Office',task.office],['Date of service',task.dos],['Task type',task.type],['Assigned employee',task.employee],['Priority',task.priority],['Due date',task.due],['Last follow-up',task.followup],['Next action',task.next]].map(x=><div key={x[0]}><span>{x[0]}</span><b>{x[1]}</b></div>)}</div><label>Status<select value={s} onChange={e=>setS(e.target.value)}>{statuses.map(x=><option key={x}>{x}</option>)}</select></label><label>Notes<textarea value={notes} onChange={e=>setNotes(e.target.value)}/></label></>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary">{fresh?'Assign task':'Save changes'}</button></footer></form></section></div>}
+
+createRoot(document.getElementById('root')).render(<App/>)
