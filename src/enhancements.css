@@ -1,0 +1,10 @@
+.assignment-control{display:grid;grid-template-columns:1fr auto;gap:8px}
+.assignment-control button{border:1px solid #cbd8d4;background:#edf6f3;color:#246958;border-radius:7px;padding:0 10px;font-size:9px;font-weight:700}
+.import-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:14px;align-items:end;padding:14px 18px}
+.import-controls label{display:flex;flex-direction:column;gap:5px;font-size:9px;font-weight:700}
+.import-controls select{border:1px solid #d9e2df;border-radius:7px;padding:9px;background:#fff}
+.import-controls .auto-assign{flex-direction:row;align-items:center;padding-bottom:9px}
+.import-controls .auto-assign input{width:auto}
+.import-review td:last-child button{border:0;background:#fff0ef;color:#a7443d;border-radius:6px;padding:5px}
+.import-review td:last-child svg{width:14px;height:14px}
+@media(max-width:760px){.import-controls{grid-template-columns:1fr}.assignment-control{grid-template-columns:1fr}.import-review{overflow:auto}}
