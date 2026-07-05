@@ -8,3 +8,4 @@
 .import-review td:last-child button{border:0;background:#fff0ef;color:#a7443d;border-radius:6px;padding:5px}
 .import-review td:last-child svg{width:14px;height:14px}
 @media(max-width:760px){.import-controls{grid-template-columns:1fr}.assignment-control{grid-template-columns:1fr}.import-review{overflow:auto}}
+.route-hint{display:block;margin:-5px 0 14px;padding:9px 10px;border-left:3px solid #08aeb8;background:#edf9fa;color:#526b76;font-size:8px;line-height:1.5}
