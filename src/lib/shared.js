@@ -18,4 +18,4 @@ export async function upsertTasks(tasks,userId,offices,employees){
 
 export async function updateProfile(id,changes){const {error}=await supabase.from('profiles').update(changes).eq('id',id);if(error)throw error}
 export async function sendEmployeeAccess(email,fullName){const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:window.location.origin,data:{full_name:fullName}}});if(error)throw error}
-export async function markNotificationsRead(ids){if(!ids.length)return;await supabase.from('notifications').update({read_at:new Date().toISOString()}).in('id',ids)}
+export async function markNotificationsRead(ids){const dbIds=ids.filter(id=>/^[0-9a-f-]{36}$/i.test(id));if(!dbIds.length)return;await supabase.from('notifications').update({read_at:new Date().toISOString()}).in('id',dbIds)}
