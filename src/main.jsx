@@ -6,6 +6,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import './styles.css'
 import './enhancements.css'
+import './branding.css'
 import { supabase, secureBackendConfigured } from './lib/supabase'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker

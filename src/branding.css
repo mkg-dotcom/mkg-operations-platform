@@ -1,0 +1,15 @@
+:root{--green:#083f7c;--line:#dbe6ef;--muted:#66798c;background:#f4f8fb}
+body{background:linear-gradient(180deg,#f8fcfe,#edf6fa)}
+.app>aside{background:linear-gradient(180deg,#073d78 0%,#075b88 60%,#09a9b7 100%)}
+.brand{height:92px;background:#fff;border-right:1px solid #dbe6ef;padding:12px}
+.brand>i,.auth-brand>i{width:64px;height:64px;border-radius:13px;background:#fff url('/mkg-logo.jpg') center/contain no-repeat;color:transparent;font-size:0;box-shadow:0 3px 12px #083f7c22;flex:none}
+.brand>b{color:#083f7c;font-size:16px}.brand small{color:#607892}
+.app nav button{color:#e2f1f7}.app nav label{color:#9edee5}.app nav button.active,.app nav button:hover{color:#083f7c;background:#fff;box-shadow:0 4px 14px #002a4a24}
+.primary{background:#08aeb8!important;border-color:#08aeb8!important;box-shadow:0 4px 12px #08aeb833}.primary:hover{background:#083f7c!important;border-color:#083f7c!important}
+.stats article>svg,.cards article>i{background:#e7f8fa;color:#08aeb8}.panel,.stats article,.cards article{border-color:#dbe6ef;box-shadow:0 5px 20px #083f7c0b}
+progress::-webkit-progress-value{background:linear-gradient(90deg,#08aeb8,#ffd300)}
+.auth-shell{background:linear-gradient(145deg,#083f7c,#08aeb8 72%,#ffd300)}
+.auth-card{border-top:5px solid #ffd300}.auth-brand b{color:#083f7c}.auth-shield{color:#08aeb8}
+.toast{background:#083f7c}.profile>i,.work>div>i{background:#ffd300;color:#083f7c}
+.metric-strip article{border-top-color:#08aeb8}.donut{background:conic-gradient(#08aeb8 0 85%,#ffd300 85% 95%,#e8edec 95%)}
+@media(max-width:780px){.brand{height:86px}.brand>i{width:58px;height:58px}}
