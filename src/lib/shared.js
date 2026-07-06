@@ -30,5 +30,5 @@ export async function saveOffices(offices){
  }
 }
 export async function setEmployeeOffices(userId,officeIds){const {error:removeError}=await supabase.from('office_memberships').delete().eq('user_id',userId);if(removeError)throw removeError;if(officeIds.length){const {error}=await supabase.from('office_memberships').insert(officeIds.map(office_id=>({office_id,user_id:userId})));if(error)throw error}}
-export async function sendEmployeeAccess(email,fullName){const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:window.location.origin,data:{full_name:fullName}}});if(error)throw error}
+export async function sendEmployeeAccess(email,fullName){const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:window.location.origin+'?setup=password',data:{full_name:fullName,requires_password_setup:true}}});if(error)throw error}
 export async function markNotificationsRead(ids){const dbIds=ids.filter(id=>/^[0-9a-f-]{36}$/i.test(id));if(!dbIds.length)return;await supabase.from('notifications').update({read_at:new Date().toISOString()}).in('id',dbIds)}
