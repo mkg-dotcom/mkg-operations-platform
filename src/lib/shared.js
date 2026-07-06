@@ -17,6 +17,7 @@ export async function upsertTasks(tasks,userId,offices,employees){
 }
 
 export async function updateProfile(id,changes){const {error}=await supabase.from('profiles').update(changes).eq('id',id);if(error)throw error}
+export async function deactivateProfile(id){const {error:memberError}=await supabase.from('office_memberships').delete().eq('user_id',id);if(memberError)throw memberError;const {error}=await supabase.from('profiles').update({active:false}).eq('id',id);if(error)throw error}
 export async function saveOffices(offices){
  const codeFor=o=>String(o.code||o.name||'office').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,18)||'OFFICE'
  for(const office of offices){
