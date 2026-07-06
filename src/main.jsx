@@ -7,7 +7,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import './styles.css'
 import './enhancements.css'
 import './branding.css'
-import {LiveDashboard,LiveDepartment,ProblemClaimsDashboard,LiveWorkforceQA,LiveKPI,DrawerV4 as DrawerV3} from './live-components'
+import {LiveDashboard,LiveDepartment,ProblemClaimsDashboard,LiveWorkforceQA,LiveKPI,DrawerV5 as DrawerV3} from './live-components'
 import EmployeeAccess from './employee-access'
 import { supabase, secureBackendConfigured } from './lib/supabase'
 import {loadWorkspace,upsertTasks,updateProfile,sendEmployeeAccess,markNotificationsRead,saveOffices} from './lib/shared'
@@ -41,10 +41,17 @@ const addDays=(date,days)=>{const next=new Date(date);next.setDate(next.getDate(
 const routeClaimTask=(task,status)=>(task.type==='Claims Follow-Up'||task.type==='Problem Claims')?(status==='RESUBMITTED'?'Claims Follow-Up':paymentRoutes.includes(status)?'Payment Posting':problemRoutes.includes(status)?'Problem Claims':task.type==='Claims Follow-Up'?'Claims Follow-Up':task.type):task.type
 const applyClaimAutomation=(task,status,destination,notes)=>{
  const today=new Date().toISOString().slice(0,10),checkDate=addDays(today,14),claimFollowUp=destination==='Claims Follow-Up'&&(task.type==='Claims Follow-Up'||status==='RESUBMITTED')
- if(!claimFollowUp)return {notes}
+ if(!claimFollowUp)return {}
  const tag='Next action: check claim status after two weeks on '+checkDate+'.'
- const cleanNotes=String(notes||'').replace(/\n?Next action: check claim status after two weeks on \d{4}-\d{2}-\d{2}\./g,'').trim()
- return {notes:(cleanNotes?cleanNotes+'\n':'')+tag,due:checkDate,next:checkDate,followup:today}
+ return {systemNote:tag,due:checkDate,next:checkDate,followup:today}
+}
+const isClaimTask=t=>['Claims Follow-Up','Problem Claims'].includes(t?.type)
+const noteStamp=()=>new Date().toLocaleString(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'numeric',minute:'2-digit'})
+const appendClaimNote=(task,newNote,actor,systemNote)=>{
+ const existing=String(task.notes||'').trim(),entries=[]
+ if(String(newNote||'').trim())entries.push('['+noteStamp()+'] '+(actor||'MKG User')+': '+String(newNote).trim())
+ if(systemNote)entries.push('['+noteStamp()+'] System: '+systemNote)
+ return [existing,...entries].filter(Boolean).join('\n\n')
 }
 
 function App({secureUser=null}){
@@ -89,7 +96,7 @@ function App({secureUser=null}){
    <header><button className="hamb" onClick={()=>setMobile(true)}><Menu/></button><div className="search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search patient, office, employee..."/></div><div className="actions"><label><Building2/><select value={office} onChange={e=>setOffice(e.target.value)}><option>All offices</option>{officeRecords.map(o=><option key={o.id}>{o.name}</option>)}</select></label><button className="bell" onClick={()=>setNoticeOpen(!noticeOpen)}><Bell/>{notifications.length>0&&<em>{notifications.length}</em>}</button>{noticeOpen&&<div className="notification-menu"><b>Notifications</b>{notifications.length?notifications.map(n=><p key={n.id}><strong>{n.title}</strong><small>{n.message}</small></p>):<p>No new notifications.</p>}<button onClick={()=>{markNotificationsRead(notifications.map(n=>n.id));setNotifications([])}}>Mark all read</button></div>}</div></header>
    <div className="page">{content}</div>
   </main>
-  {drawer&&<DrawerV3 role={role} task={drawer===true?null:drawer} offices={officeRecords} employees={employeeRecords} tasks={tasks} close={()=>setDrawer(null)} save={(t,s,n,employee,postedAmount,postedDate,qa)=>{const destination=routeClaimTask(t,s),auto=applyClaimAutomation(t,s,destination,n);saveTasks(tasks.map(x=>x.id===t.id?{...x,type:destination,status:s,notes:auto.notes,employee,postedAmount,postedDate,...qa,due:auto.due||x.due,next:auto.next||x.next,followup:auto.followup||x.followup,completion:s==='Completed'?new Date().toISOString().slice(0,10):x.completion}:x));setDrawer(null);notify(destination!==t.type?'Task automatically moved to '+destination:'Task updated successfully')}} create={t=>{saveTasks([{...t,id:'MKG-'+Date.now(),dos:new Date().toISOString().slice(0,10),followup:'—',next:t.due,completion:'—'},...tasks]);setDrawer(null);notify('New task assigned')}}/>}
+  {drawer&&<DrawerV3 role={role} currentUser={sharedProfile?.full_name||secureUser?.user_metadata?.full_name||secureUser?.email||'MKG User'} task={drawer===true?null:drawer} offices={officeRecords} employees={employeeRecords} tasks={tasks} close={()=>setDrawer(null)} save={(t,s,n,employee,postedAmount,postedDate,qa)=>{const destination=routeClaimTask(t,s),auto=applyClaimAutomation(t,s,destination,n),claim=isClaimTask(t)||destination==='Claims Follow-Up'||destination==='Problem Claims',updatedNotes=claim?appendClaimNote(t,n,sharedProfile?.full_name||secureUser?.user_metadata?.full_name||secureUser?.email||'MKG User',auto.systemNote):n;saveTasks(tasks.map(x=>x.id===t.id?{...x,type:destination,status:s,notes:updatedNotes,employee,postedAmount,postedDate,...qa,due:auto.due||x.due,next:auto.next||x.next,followup:auto.followup||x.followup,completion:s==='Completed'?new Date().toISOString().slice(0,10):x.completion}:x));setDrawer(null);notify(destination!==t.type?'Task automatically moved to '+destination:'Task updated successfully')}} create={t=>{saveTasks([{...t,id:'MKG-'+Date.now(),dos:new Date().toISOString().slice(0,10),followup:'—',next:t.due,completion:'—'},...tasks]);setDrawer(null);notify('New task assigned')}}/>}
   {mobile&&<div className="scrim" onClick={()=>setMobile(false)}/>} {toast&&<div className="toast"><CheckCircle2/>{toast}</div>}
  </div>
 }
