@@ -17,6 +17,18 @@ export async function upsertTasks(tasks,userId,offices,employees){
 }
 
 export async function updateProfile(id,changes){const {error}=await supabase.from('profiles').update(changes).eq('id',id);if(error)throw error}
+export async function saveOffices(offices){
+ const codeFor=o=>String(o.code||o.name||'office').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,18)||'OFFICE'
+ for(const office of offices){
+  if(/^[0-9a-f-]{36}$/i.test(office.id)){
+   const {error}=await supabase.from('offices').update({name:office.name,code:codeFor(office),active:office.active!==false}).eq('id',office.id)
+   if(error)throw error
+  }else{
+   const {error}=await supabase.from('offices').insert({name:office.name,code:codeFor(office),active:office.active!==false})
+   if(error)throw error
+  }
+ }
+}
 export async function setEmployeeOffices(userId,officeIds){const {error:removeError}=await supabase.from('office_memberships').delete().eq('user_id',userId);if(removeError)throw removeError;if(officeIds.length){const {error}=await supabase.from('office_memberships').insert(officeIds.map(office_id=>({office_id,user_id:userId})));if(error)throw error}}
 export async function sendEmployeeAccess(email,fullName){const {error}=await supabase.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:window.location.origin,data:{full_name:fullName}}});if(error)throw error}
 export async function markNotificationsRead(ids){const dbIds=ids.filter(id=>/^[0-9a-f-]{36}$/i.test(id));if(!dbIds.length)return;await supabase.from('notifications').update({read_at:new Date().toISOString()}).in('id',dbIds)}
