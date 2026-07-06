@@ -40,7 +40,7 @@ const problemRoutes=['DENIED DUE TO TFL','NEED TO RESUBMIT','NEED EOB','NO ACTIV
 const addDays=(date,days)=>{const next=new Date(date);next.setDate(next.getDate()+days);return next.toISOString().slice(0,10)}
 const routeClaimTask=(task,status)=>(task.type==='Claims Follow-Up'||task.type==='Problem Claims')?(status==='RESUBMITTED'?'Claims Follow-Up':paymentRoutes.includes(status)?'Payment Posting':problemRoutes.includes(status)?'Problem Claims':task.type==='Claims Follow-Up'?'Claims Follow-Up':task.type):task.type
 const applyClaimAutomation=(task,status,destination,notes)=>{
- const today=new Date().toISOString().slice(0,10),checkDate=addDays(today,14),claimFollowUp=destination==='Claims Follow-Up'&&(task.type==='Claims Follow-Up'||status==='RESUBMITTED')
+ const today=new Date().toISOString().slice(0,10),checkDate=addDays(today,14),claimChanged=status!==task.status||String(notes||'').trim(),claimFollowUp=claimChanged&&destination==='Claims Follow-Up'&&(task.type==='Claims Follow-Up'||status==='RESUBMITTED')
  if(!claimFollowUp)return {}
  const tag='Next action: check claim status after two weeks on '+checkDate+'.'
  return {systemNote:tag,due:checkDate,next:checkDate,followup:today}
