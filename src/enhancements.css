@@ -15,3 +15,5 @@
 .office-access{border:1px solid var(--line);border-radius:8px;padding:12px;margin:14px 0}.office-access legend{font-size:9px;font-weight:800;color:#087d88;padding:0 6px}.office-access label{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;margin:8px 0!important}.office-access input{width:auto!important}
 .note-history{border:1px solid #dbe8e5;border-radius:12px;padding:12px;margin:12px 0;background:#f8fbfa}.note-history legend{font-weight:800;font-size:11px;color:#174f43;padding:0 6px}.note-history p{white-space:pre-wrap;background:#fff;border:1px solid #e2ece9;border-radius:9px;padding:10px;margin:8px 0;font-size:11px;color:#32413d}.note-history small{display:block;color:#73827d;margin:8px 0 12px}.note-history label{margin-top:12px!important}
 .link-button{border:0;background:transparent;color:#087d88;font-size:11px;font-weight:800;padding:10px 0;text-decoration:underline}
+.balance-stats{grid-template-columns:repeat(5,1fr)}
+@media(max-width:520px){.balance-stats{grid-template-columns:repeat(2,1fr);gap:12px}}
