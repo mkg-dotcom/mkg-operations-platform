@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { LayoutDashboard, ClipboardList, ShieldCheck, FileText, CreditCard, TriangleAlert, Building2, Users, BarChart3, Search, Bell, Plus, Clock3, CheckCircle2, AlertCircle, MoreHorizontal, X, Menu, Send, UserRound, ClipboardCheck, ArrowUpRight, CalendarDays, SlidersHorizontal, Activity, Scale, History, BadgeCheck, FileUp, Database, Download, FileSpreadsheet, UploadCloud } from 'lucide-react'
 import * as XLSX from 'xlsx'
@@ -52,6 +52,7 @@ function App({secureUser=null}){
  const [officeRecords,setOfficeRecords]=useState(()=>JSON.parse(localStorage.getItem('mkg-offices')||'null')||officeSeed),[employeeRecords,setEmployeeRecords]=useState(()=>JSON.parse(localStorage.getItem('mkg-employees')||'null')||employeeSeed)
  const [query,setQuery]=useState(''), [office,setOffice]=useState('All offices'), [role,setRole]=useState(secureUser?.user_metadata?.role||'Admin'),[sharedProfile,setSharedProfile]=useState(null),[notifications,setNotifications]=useState([]),[noticeOpen,setNoticeOpen]=useState(false)
  const [drawer,setDrawer]=useState(null), [mobile,setMobile]=useState(false), [toast,setToast]=useState('')
+ const sharedWarningShown=useRef(false)
  const saveTasks=next=>{setTasks(next);localStorage.setItem('mkg-tasks',JSON.stringify(next));if(sharedProfile)upsertTasks(next,secureUser.id,officeRecords,employeeRecords).catch(e=>notify('Shared save failed: '+e.message))}
  const notify=x=>{setToast(x);setTimeout(()=>setToast(''),2400)}
  useEffect(()=>{
@@ -69,7 +70,7 @@ function App({secureUser=null}){
    }
    const today=new Date().toISOString().slice(0,10),overdue=data.tasks.filter(t=>t.due&&t.due<today&&!['Completed','POSTED'].includes(t.status)).map(t=>({id:'overdue-'+t.id,kind:'overdue',title:'Overdue task',message:t.patient+' · due '+t.due}))
    setNotifications([...data.notifications,...overdue]);if(active){setTasks(data.tasks);localStorage.setItem('mkg-tasks',JSON.stringify(data.tasks))}
-  }catch(e){notify('Shared workspace unavailable; local tasks were not changed: '+e.message)}}
+  }catch(e){if(!sharedWarningShown.current){sharedWarningShown.current=true;notify('Shared workspace unavailable; local tasks were not changed: '+e.message)}}}
   load();const channel=supabase.channel('mkg-live').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},load).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:`user_id=eq.${secureUser.id}`},load).subscribe();return()=>{active=false;supabase.removeChannel(channel)}
  },[secureUser?.id])
  let filtered=useMemo(()=>tasks.filter(t=>(office==='All offices'||t.office===office)&&Object.values(t).join(' ').toLowerCase().includes(query.toLowerCase())),[tasks,office,query])
