@@ -27,6 +27,7 @@ export async function upsertTasks(tasks,userId,offices,employees){
  const {error}=await retryNetwork(()=>supabase.from('tasks').upsert(rows,{onConflict:'external_id'}));if(error)throw error
 }
 
+export async function deleteTask(task){const externalId=task?.id||task?.external_id;if(!externalId)throw new Error('Missing task id');const {error}=await retryNetwork(()=>supabase.from('tasks').delete().eq('external_id',externalId));if(error)throw error}
 export async function updateProfile(id,changes){const {error}=await supabase.from('profiles').update(changes).eq('id',id);if(error)throw error}
 export async function deactivateProfile(id){const {error:memberError}=await supabase.from('office_memberships').delete().eq('user_id',id);if(memberError)throw memberError;const {error}=await supabase.from('profiles').update({active:false}).eq('id',id);if(error)throw error}
 export async function saveOffices(offices){
