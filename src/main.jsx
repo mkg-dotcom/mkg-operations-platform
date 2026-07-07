@@ -40,6 +40,7 @@ const problemRoutes=['ON PROCESS','NEED TO REBILL','APPEAL','2ND FOR PROVIDER IS
 const trackingDueDays={'CHECK CLAIM STATUS':0,'IN PROCESS':7,'RESUBMITTED 1st time':15,'RESUBMITTED 2nd time':15,'RESUBMITTED 3rd time':15,'Submitted by mail':15,'SET TO PAY':7,'NEED EOB TO POST':2,'SENT MESSAGE TO TEAM':2,'SENT MESSAGE TO OFFICE':5,'ON PROCESS':2,'NEED TO REBILL':2,'APPEAL':7,'DND PT COB/SENT MSG TO OFFICE':5}
 const addDays=(date,days)=>{const next=new Date(date);next.setDate(next.getDate()+days);return next.toISOString().slice(0,10)}
 const normalizeClaimStatusTasks=(items)=>{const today=new Date().toISOString().slice(0,10);return items.map(t=>t.type==='Claims Follow-Up'&&['CLAIM IN PROCESS','CHECK CLAIM STATUS'].includes(t.status)?{...t,status:'CHECK CLAIM STATUS',due:today,next:today}:t)}
+const chunks=(items,size)=>Array.from({length:Math.ceil(items.length/size)},(_,i)=>items.slice(i*size,i*size+size))
 const routeClaimTask=(task,status)=>(task.type==='Claims Follow-Up'||task.type==='Problem Claims')?(String(status).startsWith('RESUBMITTED')?'Claims Follow-Up':paymentRoutes.includes(status)?'Payment Posting':problemRoutes.includes(status)?'Problem Claims':task.type==='Claims Follow-Up'?'Claims Follow-Up':task.type):task.type
 const applyClaimAutomation=(task,status,destination,notes)=>{
  const today=new Date().toISOString().slice(0,10),noteText=String(notes||'').trim(),claimChanged=status!==task.status||noteText&&!noteText.startsWith('__EDIT_HISTORY__')
@@ -84,7 +85,7 @@ function App({secureUser=null}){
    const localTasks=JSON.parse(localStorage.getItem('mkg-tasks')||'[]')
    const missingLocal=localTasks.filter(local=>!data.tasks.some(shared=>shared.id===local.id))
    if(missingLocal.length){
-    try{await upsertTasks([...data.tasks,...missingLocal],secureUser.id,data.offices,data.employees);data=await loadWorkspace(secureUser.id);notify(missingLocal.length+' local tasks recovered to the shared database')}
+    try{for(const batch of chunks(missingLocal,25)){await upsertTasks(batch,secureUser.id,data.offices,data.employees)}data=await loadWorkspace(secureUser.id);notify(missingLocal.length+' local tasks recovered to the shared database')}
     catch(syncError){setTasks([...data.tasks,...missingLocal]);notify('Local tasks preserved. Shared sync needs attention: '+syncError.message);return}
    }
    const today=new Date().toISOString().slice(0,10),overdue=data.tasks.filter(t=>t.due&&t.due<today&&!['Completed','POSTED'].includes(t.status)).map(t=>({id:'overdue-'+t.id,kind:'overdue',title:'Overdue task',message:t.patient+' · due '+t.due}))
