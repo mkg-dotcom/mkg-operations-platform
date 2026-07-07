@@ -40,7 +40,7 @@ const problemRoutes=['DENIED DUE TO TFL','NEED TO RESUBMIT','NEED EOB','NO ACTIV
 const addDays=(date,days)=>{const next=new Date(date);next.setDate(next.getDate()+days);return next.toISOString().slice(0,10)}
 const routeClaimTask=(task,status)=>(task.type==='Claims Follow-Up'||task.type==='Problem Claims')?(status==='RESUBMITTED'?'Claims Follow-Up':paymentRoutes.includes(status)?'Payment Posting':problemRoutes.includes(status)?'Problem Claims':task.type==='Claims Follow-Up'?'Claims Follow-Up':task.type):task.type
 const applyClaimAutomation=(task,status,destination,notes)=>{
- const today=new Date().toISOString().slice(0,10),checkDate=addDays(today,14),claimChanged=status!==task.status||String(notes||'').trim(),claimFollowUp=claimChanged&&destination==='Claims Follow-Up'&&(task.type==='Claims Follow-Up'||status==='RESUBMITTED')
+ const today=new Date().toISOString().slice(0,10),checkDate=addDays(today,14),noteText=String(notes||'').trim(),claimChanged=status!==task.status||noteText&&!noteText.startsWith('__EDIT_HISTORY__'),claimFollowUp=claimChanged&&destination==='Claims Follow-Up'&&(task.type==='Claims Follow-Up'||status==='RESUBMITTED')
  if(!claimFollowUp)return {}
  const tag='Next action: check claim status after two weeks on '+checkDate+'.'
  return {systemNote:tag,due:checkDate,next:checkDate,followup:today}
@@ -49,6 +49,7 @@ const isClaimTask=t=>['Claims Follow-Up','Problem Claims'].includes(t?.type)
 const noteStamp=()=>new Date().toLocaleString(undefined,{year:'numeric',month:'short',day:'2-digit',hour:'numeric',minute:'2-digit'})
 const appendClaimNote=(task,newNote,actor,systemNote)=>{
  const existing=String(task.notes||'').trim(),entries=[]
+ if(String(newNote||'').startsWith('__EDIT_HISTORY__')){const edited=String(newNote).slice('__EDIT_HISTORY__'.length).trim();if(systemNote)entries.push('['+noteStamp()+'] System: '+systemNote);return [edited,...entries].filter(Boolean).join('\n\n')}
  if(String(newNote||'').trim())entries.push('['+noteStamp()+'] '+(actor||'MKG User')+': '+String(newNote).trim())
  if(systemNote)entries.push('['+noteStamp()+'] System: '+systemNote)
  return [existing,...entries].filter(Boolean).join('\n\n')
