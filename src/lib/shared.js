@@ -27,7 +27,14 @@ export async function upsertTasks(tasks,userId,offices,employees){
  const {error}=await retryNetwork(()=>supabase.from('tasks').upsert(rows,{onConflict:'external_id'}));if(error)throw error
 }
 
-export async function deleteTask(task){const externalId=task?.id||task?.external_id;if(!externalId)throw new Error('Missing task id');const {error}=await retryNetwork(()=>supabase.from('tasks').delete().eq('external_id',externalId));if(error)throw error}
+export async function deleteTask(task){
+ const uuid=/^[0-9a-f-]{36}$/i,dbId=task?.dbId,externalId=task?.id||task?.external_id
+ let deleted=[]
+ if(dbId&&uuid.test(dbId)){const {data,error}=await retryNetwork(()=>supabase.from('tasks').delete().eq('id',dbId).select('id'));if(error)throw error;deleted=data||[]}
+ if(!deleted.length&&externalId){const {data,error}=await retryNetwork(()=>supabase.from('tasks').delete().eq('external_id',externalId).select('id'));if(error)throw error;deleted=data||[]}
+ if(!deleted.length)throw new Error('No shared task row was deleted. It may already be removed or blocked by database policy.')
+ return deleted
+}
 export async function updateProfile(id,changes){const {error}=await supabase.from('profiles').update(changes).eq('id',id);if(error)throw error}
 export async function deactivateProfile(id){const {error:memberError}=await supabase.from('office_memberships').delete().eq('user_id',id);if(memberError)throw memberError;const {error}=await supabase.from('profiles').update({active:false}).eq('id',id);if(error)throw error}
 export async function saveOffices(offices){
