@@ -67,13 +67,13 @@ function App({secureUser=null}){
  const [query,setQuery]=useState(''), [office,setOffice]=useState('All offices'), [employeeFilter,setEmployeeFilter]=useState('All employees'), [role,setRole]=useState(secureUser?.user_metadata?.role||'Admin'),[sharedProfile,setSharedProfile]=useState(null),[notifications,setNotifications]=useState([]),[noticeOpen,setNoticeOpen]=useState(false)
  const [drawer,setDrawer]=useState(null), [mobile,setMobile]=useState(false), [toast,setToast]=useState('')
  const [auditRecords,setAuditRecords]=useState(()=>JSON.parse(localStorage.getItem('mkg-audit-log')||'[]'))
- const sharedWarningShown=useRef(false)
+ const sharedWarningShown=useRef(false),lastToastRef=useRef({text:'',at:0})
  const applyWorkspace=data=>{setSharedProfile(data.profile);setRole(data.profile.role==='team_lead'?'Team Lead':data.profile.role==='employee'?'Employee':'Admin');setOfficeRecords(data.offices);setEmployeeRecords(data.employees);localStorage.setItem('mkg-offices',JSON.stringify(data.offices));localStorage.setItem('mkg-employees',JSON.stringify(data.employees));return data}
  const ensureWorkspace=async()=>sharedProfile?{profile:sharedProfile,offices:officeRecords,employees:employeeRecords,notifications,tasks}:applyWorkspace(await loadWorkspace(secureUser.id))
  const saveTasks=async(next,changed=null)=>{if(secureUser){let workspace;try{workspace=await ensureWorkspace()}catch(e){notify('Shared workspace connection failed: '+e.message);return false}try{const auto=next.filter(n=>{const old=tasks.find(t=>t.id===n.id);return !old||JSON.stringify(old)!==JSON.stringify(n)}),focused=Array.isArray(changed)?changed.filter(Boolean):(changed?[changed]:(auto.length===1?auto:null));await upsertTasks(focused?.length?focused:next,secureUser.id,workspace.offices,workspace.employees);setTasks(next);localStorage.setItem('mkg-tasks',JSON.stringify(next));if(!focused?.length){const data=applyWorkspace(await loadWorkspace(secureUser.id)),normalizedTasks=normalizeClaimStatusTasks(data.tasks);setTasks(normalizedTasks);localStorage.setItem('mkg-tasks',JSON.stringify(normalizedTasks));setNotifications(data.notifications)}return true}catch(e){notify('Shared save failed: '+e.message);return false}}setTasks(next);localStorage.setItem('mkg-tasks',JSON.stringify(next));return true}
  const actor=()=>sharedProfile?.full_name||secureUser?.user_metadata?.full_name||secureUser?.email||'MKG User'
  const logActivity=(action,detail,user=actor())=>{const record={id:Date.now()+'-'+Math.random().toString(16).slice(2),at:new Date().toISOString(),user,action,detail},next=[record,...auditRecords].slice(0,500);setAuditRecords(next);localStorage.setItem('mkg-audit-log',JSON.stringify(next))}
- const notify=x=>{setToast(x);setTimeout(()=>setToast(''),2400)}
+ const notify=x=>{const now=Date.now();if(lastToastRef.current.text===x&&now-lastToastRef.current.at<10000)return;lastToastRef.current={text:x,at:now};setToast(x);setTimeout(()=>setToast(''),2400)}
  useEffect(()=>{
   if(!secureUser)return
   let active=true
