@@ -61,3 +61,17 @@ export async function saveAppSettings(value,userId,key='module_settings'){
  const {error}=await retryNetwork(()=>supabase.from('app_settings').upsert({key,value,updated_by:userId,updated_at:new Date().toISOString()},{onConflict:'key'}))
  if(error)throw error
 }
+export async function uploadClaimAttachment(file,task,userId){
+ if(!file)throw new Error('No file selected')
+ if(!['application/pdf','image/jpeg','image/png'].includes(file.type))throw new Error('Upload PDF, JPG, JPEG, or PNG only')
+ if(file.size>10*1024*1024)throw new Error('File is too large. Maximum is 10 MB.')
+ const safeName=file.name.replace(/[^a-z0-9._-]+/gi,'-').slice(0,120),taskKey=(task?.dbId||task?.id||'claim').replace(/[^a-z0-9-]+/gi,'-'),path=`${taskKey}/${Date.now()}-${safeName}`
+ const {error}=await retryNetwork(()=>supabase.storage.from('claim-attachments').upload(path,file,{contentType:file.type,upsert:false,metadata:{task_id:task?.dbId||'',external_id:task?.id||'',uploaded_by:userId||''}}))
+ if(error)throw error
+ return {name:file.name,path,type:file.type,size:file.size}
+}
+export async function openClaimAttachment(path){
+ const {data,error}=await retryNetwork(()=>supabase.storage.from('claim-attachments').createSignedUrl(path,300))
+ if(error)throw error
+ window.open(data.signedUrl,'_blank','noopener,noreferrer')
+}
