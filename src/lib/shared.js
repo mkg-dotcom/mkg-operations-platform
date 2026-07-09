@@ -27,7 +27,17 @@ export async function upsertTasks(tasks,userId,offices,employees){
  const officeId=name=>offices.find(o=>o.name===name)?.id,employeeId=name=>employees.find(e=>e.name===name)?.id
  const rows=tasks.filter(t=>officeId(t.office)).map(t=>({external_id:t.id,office_id:officeId(t.office),patient_reference:t.id,patient_name:t.patient,date_of_service:/^\d{4}-\d{2}-\d{2}$/.test(t.dos)?t.dos:null,task_type:t.type,assigned_to:employeeId(t.employee)||null,priority:String(t.priority||'medium').toLowerCase(),status:t.status,due_at:t.due&&/^\d{4}-\d{2}-\d{2}$/.test(t.due)?new Date(t.due+'T12:00:00Z').toISOString():null,notes:t.notes||null,last_follow_up_at:null,next_action_at:t.next&&/^\d{4}-/.test(t.next)?new Date(t.next+'T12:00:00Z').toISOString():null,completed_at:t.completion&&/^\d{4}-/.test(t.completion)?new Date(t.completion+'T12:00:00Z').toISOString():null,created_by:userId,posted_amount:t.postedAmount===''?null:Number(t.postedAmount),posted_date:t.postedDate||null,qa_status:t.qaStatus||'Pending review',qa_score:t.qaScore===''?null:Number(t.qaScore),qa_notes:t.qaNotes||null,qa_reviewer:t.qaReviewer&&/^[0-9a-f-]{36}$/i.test(t.qaReviewer)?t.qaReviewer:null}))
  if(!rows.length)throw new Error('No tasks matched an active office')
- const {error}=await retryNetwork(()=>supabase.from('tasks').upsert(rows,{onConflict:'external_id'}));if(error)throw error
+ const {error}=await retryNetwork(()=>supabase.from('tasks').upsert(rows,{onConflict:'external_id'}))
+ if(error&&rows.length>1){
+  const failed=[]
+  for(const row of rows){
+   const {error:rowError}=await retryNetwork(()=>supabase.from('tasks').upsert(row,{onConflict:'external_id'}))
+   if(rowError)failed.push((row.patient_name||row.external_id)+': '+rowError.message)
+  }
+  if(failed.length)throw new Error(failed.length+' of '+rows.length+' task rows could not sync. First issue: '+failed[0])
+  return
+ }
+ if(error)throw error
 }
 
 export async function deleteTask(task){
