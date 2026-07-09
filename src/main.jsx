@@ -113,7 +113,7 @@ function App({secureUser=null}){
  const [drawer,setDrawer]=useState(null), [mobile,setMobile]=useState(false), [toast,setToast]=useState('')
  const [moduleSettings,setModuleSettings]=useState(loadModuleSettings)
  const [auditRecords,setAuditRecords]=useState(()=>JSON.parse(localStorage.getItem('mkg-audit-log')||'[]'))
- const sharedWarningShown=useRef(false),lastToastRef=useRef({text:'',at:0})
+ const sharedWarningShown=useRef(false),localRecoveryAttempted=useRef(false),lastToastRef=useRef({text:'',at:0})
  const applyWorkspace=data=>{setSharedProfile(data.profile);setSecureLoaded(true);setSyncError('');setRole(data.profile.role==='team_lead'?'Team Lead':data.profile.role==='employee'?'Employee':'Admin');setOfficeRecords(data.offices);setEmployeeRecords(data.employees);localStorage.setItem('mkg-offices',JSON.stringify(data.offices));localStorage.setItem('mkg-employees',JSON.stringify(data.employees));return data}
  const ensureWorkspace=async()=>sharedProfile?{profile:sharedProfile,offices:officeRecords,employees:employeeRecords,notifications,tasks}:applyWorkspace(await loadWorkspace(secureUser.id))
  const saveTasks=async(next,changed=null)=>{if(secureUser){let workspace;try{workspace=await ensureWorkspace()}catch(e){notify('Shared workspace connection failed: '+e.message);return false}try{const auto=next.filter(n=>{const old=tasks.find(t=>t.id===n.id);return !old||JSON.stringify(old)!==JSON.stringify(n)}),focused=Array.isArray(changed)?changed.filter(Boolean):(changed?[changed]:(auto.length===1?auto:null));await upsertTasks(focused?.length?focused:next,secureUser.id,workspace.offices,workspace.employees);setTasks(next);localStorage.setItem('mkg-tasks',JSON.stringify(next));const data=applyWorkspace(await loadWorkspace(secureUser.id)),normalizedTasks=normalizeClaimStatusTasks(data.tasks);setTasks(normalizedTasks);setAuditRecords(data.auditRecords||auditRecords);localStorage.setItem('mkg-tasks',JSON.stringify(normalizedTasks));localStorage.setItem('mkg-audit-log',JSON.stringify(data.auditRecords||auditRecords));setNotifications(data.notifications);return true}catch(e){notify('Shared save failed: '+e.message);return false}}setTasks(next);localStorage.setItem('mkg-tasks',JSON.stringify(next));return true}
@@ -129,18 +129,21 @@ function App({secureUser=null}){
    if(!active)return
    applyWorkspace(data)
    try{const sharedSettings=await loadAppSettings();if(sharedSettings&&active){const merged=mergeModuleSettings(sharedSettings);setModuleSettings(merged);saveModuleSettings(merged)}}catch(settingsError){if(!localStorage.getItem('mkg-settings-sync-warning')){localStorage.setItem('mkg-settings-sync-warning','shown');notify('Using local admin settings until shared settings are available: '+settingsError.message)}}
-   const localTasks=JSON.parse(localStorage.getItem('mkg-tasks')||'[]').filter(local=>!isDeletedTask(local))
-   const missingLocal=localTasks.filter(local=>!data.tasks.some(shared=>shared.id===local.id)&&!isDeletedTask(local))
-   const newerLocal=localTasks.filter(local=>{const shared=data.tasks.find(t=>t.id===local.id);return shared&&localLooksNewer(local,shared)})
-   const recoverLocal=[...missingLocal,...newerLocal.filter(local=>!missingLocal.some(m=>m.id===local.id))]
-   if(recoverLocal.length){
-    try{for(const batch of chunks(recoverLocal,25)){await upsertTasks(batch,secureUser.id,data.offices,data.employees)}data=await loadWorkspace(secureUser.id);notify(recoverLocal.length+' local worked tasks recovered to the shared database')}
-    catch(syncError){notify('Showing shared database only. Local draft tasks could not sync: '+syncError.message)}
+   if(!localRecoveryAttempted.current){
+    localRecoveryAttempted.current=true
+    const localTasks=JSON.parse(localStorage.getItem('mkg-tasks')||'[]').filter(local=>!isDeletedTask(local))
+    const missingLocal=localTasks.filter(local=>!data.tasks.some(shared=>shared.id===local.id)&&!isDeletedTask(local))
+    const newerLocal=localTasks.filter(local=>{const shared=data.tasks.find(t=>t.id===local.id);return shared&&localLooksNewer(local,shared)})
+    const recoverLocal=[...missingLocal,...newerLocal.filter(local=>!missingLocal.some(m=>m.id===local.id))]
+    if(recoverLocal.length){
+     try{for(const batch of chunks(recoverLocal,25)){await upsertTasks(batch,secureUser.id,data.offices,data.employees)}data=await loadWorkspace(secureUser.id);notify(recoverLocal.length+' local worked tasks recovered to the shared database')}
+     catch(syncError){notify('Showing shared database only. Local draft tasks could not sync: '+syncError.message)}
+    }
    }
    const today=localToday(),overdue=data.tasks.filter(t=>t.due&&t.due<today&&!['Completed','POSTED'].includes(t.status)).map(t=>({id:'overdue-'+t.id,kind:'overdue',title:'Overdue task',message:t.patient+' · due '+t.due}))
    setNotifications([...data.notifications,...overdue]);if(active){const normalizedTasks=normalizeClaimStatusTasks(data.tasks);setTasks(normalizedTasks);setAuditRecords(data.auditRecords||[]);localStorage.setItem('mkg-tasks',JSON.stringify(normalizedTasks));localStorage.setItem('mkg-audit-log',JSON.stringify(data.auditRecords||[]))}
   }catch(e){setSyncError(e.message||String(e));setSecureLoaded(false);if(!sharedWarningShown.current){sharedWarningShown.current=true;notify('Shared workspace unavailable; local tasks were not changed: '+e.message)}}}
- load();const channel=supabase.channel('mkg-live').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},load).on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications',filter:`user_id=eq.${secureUser.id}`},load).subscribe(),timer=setInterval(load,120000),focus=()=>load();window.addEventListener('focus',focus);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',focus);supabase.removeChannel(channel)}
+ load();return()=>{active=false}
  },[secureUser?.id])
  useEffect(()=>{if(!secureUser||secureLoaded||syncError)return;const timer=setTimeout(()=>setSyncError('Supabase is taking too long to respond. Please reload, or use the Vercel app link while the custom domain catches up.'),20000);return()=>clearTimeout(timer)},[secureUser?.id,secureLoaded,syncError])
  let filtered=useMemo(()=>tasks.filter(t=>(office==='All offices'||t.office===office)&&(employeeFilter==='All employees'||t.employee===employeeFilter)&&Object.values(t).join(' ').toLowerCase().includes(query.toLowerCase())),[tasks,office,employeeFilter,query])
