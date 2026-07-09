@@ -92,6 +92,19 @@ const rememberDeletedTask=task=>{
  return ids
 }
 const isDeletedTask=task=>deletedTaskIds().some(id=>[task?.id,task?.external_id,task?.dbId].includes(id))
+const hasLocalWorkEvidence=t=>{
+ const notes=String(t?.notes||'')
+ return /\[[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/.test(notes)||notes.includes('Status updated from')||notes.includes('Next action:')||notes.includes('Claim status notes:')||Boolean(t?.followup&&t.followup!=='—')||Boolean(t?.postedDate)
+}
+const localLooksNewer=(local,shared)=>{
+ if(!local||!shared||isDeletedTask(local)||!hasLocalWorkEvidence(local))return false
+ const localNotes=String(local.notes||''),sharedNotes=String(shared.notes||'')
+ if(localNotes.length>sharedNotes.length+20)return true
+ if(local.status&&local.status!==shared.status)return true
+ if(local.followup&&local.followup!=='—'&&local.followup!==shared.followup)return true
+ if(local.postedDate&&local.postedDate!==shared.postedDate)return true
+ return false
+}
 
 function App({secureUser=null}){
  const [page,setPage]=useState('Dashboard'), [tasks,setTasks]=useState(()=>{if(secureUser)return [];let saved=JSON.parse(localStorage.getItem('mkg-tasks')||'null')||seed;const clearKey='mkg-clear-claims-payment-2026-07-05';if(!localStorage.getItem(clearKey)){saved=saved.filter(t=>!['Claims Follow-Up','Payment Posting'].includes(t.type));localStorage.setItem(clearKey,'done')}const allClearKey='mkg-clear-all-demo-records-2026-07-05';if(!localStorage.getItem(allClearKey)){saved=saved.filter(t=>!/^MKG-10\d+/.test(t.id));localStorage.setItem(allClearKey,'done')}saved=normalizeClaimStatusTasks(saved);localStorage.setItem('mkg-tasks',JSON.stringify(saved));return saved})
@@ -118,8 +131,10 @@ function App({secureUser=null}){
    try{const sharedSettings=await loadAppSettings();if(sharedSettings&&active){const merged=mergeModuleSettings(sharedSettings);setModuleSettings(merged);saveModuleSettings(merged)}}catch(settingsError){if(!localStorage.getItem('mkg-settings-sync-warning')){localStorage.setItem('mkg-settings-sync-warning','shown');notify('Using local admin settings until shared settings are available: '+settingsError.message)}}
    const localTasks=JSON.parse(localStorage.getItem('mkg-tasks')||'[]').filter(local=>!isDeletedTask(local))
    const missingLocal=localTasks.filter(local=>!data.tasks.some(shared=>shared.id===local.id)&&!isDeletedTask(local))
-   if(missingLocal.length){
-    try{for(const batch of chunks(missingLocal,25)){await upsertTasks(batch,secureUser.id,data.offices,data.employees)}data=await loadWorkspace(secureUser.id);notify(missingLocal.length+' local tasks recovered to the shared database')}
+   const newerLocal=localTasks.filter(local=>{const shared=data.tasks.find(t=>t.id===local.id);return shared&&localLooksNewer(local,shared)})
+   const recoverLocal=[...missingLocal,...newerLocal.filter(local=>!missingLocal.some(m=>m.id===local.id))]
+   if(recoverLocal.length){
+    try{for(const batch of chunks(recoverLocal,25)){await upsertTasks(batch,secureUser.id,data.offices,data.employees)}data=await loadWorkspace(secureUser.id);notify(recoverLocal.length+' local worked tasks recovered to the shared database')}
     catch(syncError){notify('Showing shared database only. Local draft tasks could not sync: '+syncError.message)}
    }
    const today=localToday(),overdue=data.tasks.filter(t=>t.due&&t.due<today&&!['Completed','POSTED'].includes(t.status)).map(t=>({id:'overdue-'+t.id,kind:'overdue',title:'Overdue task',message:t.patient+' · due '+t.due}))
@@ -269,7 +284,7 @@ function PreAuthWorksheet({settings,tasks,offices,employees,open,saveTasks,allTa
 function ClaimStatusWorksheet({settings,tasks,offices,employees,open,saveTasks,allTasks,notify,logActivity}){
  const today=localToday(),claimOptions=settings?.claimRules||defaultModuleSettings.claimRules,[form,setForm]=useState({date:today,patient:'',insurance:'',dos:'',amount:'',office:offices[0]?.name||'',notes:'',status:claimOptions[0]?.status||'CHECK CLAIM STATUS',employee:employees[0]?.name||''})
  const update=(k,v)=>setForm({...form,[k]:v}),field=(notes,label)=>(String(notes||'').match(new RegExp(label+': ([^|\\n]+)'))||[])[1]?.trim()||''
- const hasWorkHistory=t=>/\[[A-Z][a-z]{2}\s+\d{2},\s+\d{4}/.test(String(t.notes||''))||Boolean(field(t.notes,'Status checked date'))||Boolean(field(t.notes,'Claim status notes'))||String(t.notes||'').includes('Status updated from')
+ const hasWorkHistory=t=>hasLocalWorkEvidence(t)||Boolean(field(t.notes,'Status checked date'))||Boolean(field(t.notes,'Claim status notes'))
  const workedToday=t=>field(t.notes,'Status checked date')===today||(t.followup===today&&hasWorkHistory(t))
  const checkedRows=tasks.filter(t=>hasWorkHistory(t))
  const waitingForFuture=t=>hasWorkHistory(t)&&afterDate(t.next||t.due,today)
