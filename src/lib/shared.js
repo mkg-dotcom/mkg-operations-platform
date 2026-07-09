@@ -1,11 +1,12 @@
 import {supabase} from './supabase'
 
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))
-const isNetworkError=error=>/failed to fetch|network|fetch/i.test(String(error?.message||error||''))
+const timeout=(promise,ms=15000,label='Supabase request')=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out after '+Math.round(ms/1000)+' seconds')),ms))])
+const isNetworkError=error=>/failed to fetch|network|fetch|timed out/i.test(String(error?.message||error||''))
 async function retryNetwork(operation){
  let lastError
  for(let attempt=0;attempt<3;attempt++){
-  try{return await operation()}
+  try{return await timeout(operation())}
   catch(error){lastError=error;if(!isNetworkError(error)||attempt===2)throw error;await wait(500*(attempt+1))}
  }
  throw lastError
