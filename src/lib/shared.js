@@ -12,10 +12,11 @@ async function retryNetwork(operation){
 }
 
 export async function loadWorkspace(userId){
- const [{data:profile,error:profileError},{data:offices,error:officeError},{data:profiles,error:peopleError},{data:memberships,error:membershipError},{data:tasks,error:taskError},{data:notifications,error:noticeError},{data:auditEvents,error:auditError}]=await retryNetwork(()=>Promise.all([
-  supabase.from('profiles').select('*').eq('id',userId).single(),supabase.from('offices').select('*').eq('active',true).order('name'),supabase.from('profiles').select('*').eq('active',true).order('full_name'),supabase.from('office_memberships').select('*'),supabase.from('tasks').select('*').order('created_at',{ascending:false}),supabase.from('notifications').select('*').is('read_at',null).order('created_at',{ascending:false}),supabase.from('audit_events').select('*').order('created_at',{ascending:false}).limit(250)
+ const [{data:profile,error:profileError},{data:offices,error:officeError},{data:profiles,error:peopleError},{data:memberships,error:membershipError},{data:tasks,error:taskError},{data:notifications,error:noticeError}]=await retryNetwork(()=>Promise.all([
+  supabase.from('profiles').select('*').eq('id',userId).single(),supabase.from('offices').select('*').eq('active',true).order('name'),supabase.from('profiles').select('*').eq('active',true).order('full_name'),supabase.from('office_memberships').select('*'),supabase.from('tasks').select('*').order('created_at',{ascending:false}),supabase.from('notifications').select('*').is('read_at',null).order('created_at',{ascending:false})
  ]))
- const error=profileError||officeError||peopleError||membershipError||taskError||noticeError||auditError;if(error)throw error
+ const error=profileError||officeError||peopleError||membershipError||taskError||noticeError;if(error)throw error
+ const {data:auditEvents}=await retryNetwork(()=>supabase.from('audit_events').select('*').order('created_at',{ascending:false}).limit(250)).catch(()=>({data:[]}))
  const officeMap=Object.fromEntries(offices.map(o=>[o.id,o.name])),personMap=Object.fromEntries(profiles.map(p=>[p.id,p.full_name]))
  const auditLabel=t=>[t?.patient_name||t?.patient_reference,t?.task_type,t?.status].filter(Boolean).join(' · ')
  const auditRecords=(auditEvents||[]).map(a=>({id:'db-'+a.id,at:a.created_at,user:personMap[a.actor_id]||'System',action:a.action+' '+a.entity_type,detail:auditLabel(a.after_data||a.before_data)||a.entity_id,office:officeMap[a.office_id]||''}))
